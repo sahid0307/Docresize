@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID Formatter & Merge Studio Pro</title>
+    <style>
+        /* --- Themes --- */
+        :root {
+            --primary: #0284c7; 
+            --primary-hover: #0369a1;
+            --bg-body: #bae6fd; 
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --border-color: #e0f2fe;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --success: #10b981; 
+            --slider-track: #0ea5e9;
+            --slider-thumb: #facc15; 
+            --glow-color: rgba(250, 204, 21, 0.85); 
+            
+            /* Merge Studio Specific Colors (PineTools inspired) */
+            --merge-bg: #1e1b4b; 
+            --merge-panel: #312e81;
+            --merge-border: #4338ca;
+            --merge-text: #e0e7ff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #38bdf8;
+                --primary-hover: #7dd3fc;
+                --bg-body: #082f49; 
+                --card-bg: rgba(15, 23, 42, 0.9); 
+                --border-color: #0c4a6e;
+                --text-main: #f0f9ff;
+                --text-muted: #94a3b8;
+                --slider-track: #0284c7;
+                --slider-thumb: #fde047; 
+                --glow-color: rgba(253, 224, 71, 0.7);
+            }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+
+        body {
+            background-color: var(--bg-body); color: var(--text-main);
+            min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem;
+            transition: all 0.3s ease; position: relative; overflow-x: hidden;
+        }
+
+        body::before {
+            content: ''; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); width: 75vw; height: 75vw;
+            background: radial-gradient(circle, var(--glow-color) 0%, rgba(0,0,0,0) 65%);
+            z-index: -1; pointer-events: none; filter: blur(70px);
+            animation: pulse 4s infinite alternate ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+        }
+
+        .app-container {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 20px;
+            width: 100%; max-width: 1050px; overflow: hidden; display: flex; flex-direction: column;
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3), 0 0 35px 5px var(--glow-color);
+        }
+
+        /* --- Header --- */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; border-bottom: 1px solid var(--border-color); }
+        .top-bar h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--primary); }
+        .designer-credit { font-size: 0.9rem; color: var(--text-main); font-weight: 600; padding: 0.5rem 1rem; border-radius: 20px; background: rgba(0,0,0,0.05); }
+        .designer-credit span { color: var(--slider-thumb); text-shadow: 0 0 8px rgba(250,204,21,0.6); }
+
+        /* --- Views --- */
+        .view-container { padding: 2rem; min-height: 400px; position: relative; }
+        .step-view { display: none; animation: fadeIn 0.4s ease forwards; }
+        .step-view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- Page 1: Portals --- */
+        .portal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+        .portal-card { background: rgba(0,0,0,0.02); border: 2px solid var(--border-color); border-radius: 16px; padding: 2rem 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .portal-card:hover { border-color: var(--primary); transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .portal-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .portal-card h3 { font-size: 1.2rem; color: var(--primary); margin-bottom: 0.3rem;}
+        .portal-desc { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* --- Page 2: Dashboard --- */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+        .dash-card { border: 2px dashed var(--primary); border-radius: 16px; padding: 2rem 1.5rem; text-align: center; cursor: pointer; transition: 0.2s; background: rgba(2, 132, 199, 0.05); position: relative; }
+        .dash-card:hover { background: rgba(2, 132, 199, 0.1); transform: scale(1.02); }
+        .dash-card.ready { border-style: solid; border-color: var(--success); background: rgba(16, 185, 129, 0.05); cursor: default; transform: scale(1); }
+        
+        .dash-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+        .dash-title { font-size: 1.1rem; font-weight: bold; color: var(--text-main); margin-bottom: 0.5rem; }
+        .dash-status { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+        .dash-actions { display: none; margin-top: 1.5rem; gap: 0.8rem; justify-content: center; }
+
+        /* --- Editor Pop-up (Standard ID) --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); z-index: 999; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+        .modal-content { background: var(--card-bg); border-radius: 16px; width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 2rem; box-shadow: 0 0 50px rgba(0,0,0,0.5); transform: scale(0.9); transition: all 0.3s; }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        
+        .editor-workspace { display: grid; grid-template-columns: 1fr 300px; gap: 2rem; align-items: start; }
+        .canvas-container { display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.03); border-radius: 12px; padding: 2rem; position: relative; }
+        .canvas-wrapper { border: 3px solid var(--success); box-shadow: 0 0 15px rgba(16, 185, 129, 0.7); background: #fff; display: inline-block; border-radius: 4px; overflow: hidden; }
+        canvas { cursor: grab; display: block; max-width:100%; max-height: 50vh;}
+        canvas:active { cursor: grabbing; }
+
+        /* --- Tools Panel --- */
+        .tools-panel { background: rgba(0,0,0,0.03); border-radius: 12px; padding: 1.2rem; display: flex; flex-direction: column; gap: 0.8rem; }
+        .tool-group { display: flex; flex-direction: column; gap: 0.3rem; }
+        .tool-header { font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 5px; text-transform: uppercase;}
+        
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; height: 20px; }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: var(--slider-track); border-radius: 10px; }
+        input[type=range]::-webkit-slider-thumb { height: 16px; width: 16px; border-radius: 50%; background: var(--slider-thumb); border: 2px solid #fff; cursor: pointer; -webkit-appearance: none; margin-top: -5px; box-shadow: 0 0 8px rgba(250, 204, 21, 0.8); }
+
+        .btn { background: var(--primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;}
+        .btn:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(2, 132, 199, 0.3); }
+        .btn-success { background: var(--success); }
+        .btn-success:hover { background: #059669; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3); }
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-danger { background: transparent; border: 2px solid #ef4444; color: #ef4444; }
+
+        /* --- PINETOOLS INSPIRED MERGE STUDIO --- */
+        .merge-studio { background: var(--merge-bg); border-radius: 12px; padding: 1.5rem; color: var(--merge-text); display:flex; flex-direction: column; gap: 1rem;}
+        .merge-header { border-bottom: 1px solid var(--merge-border); padding-bottom: 1rem; margin-bottom: 1rem; font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; color: #fff;}
+        
+        .merge-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .merge-box { background: var(--merge-panel); border: 1px solid var(--merge-border); border-radius: 8px; padding: 1rem; }
+        .merge-box-title { font-size: 0.75rem; font-weight: 700; color: #fff; background: rgba(0,0,0,0.3); padding: 5px 10px; display: inline-block; margin-bottom: 10px; border-radius: 4px; letter-spacing: 1px;}
+        
+        .m-upload-area { border: 2px dashed var(--merge-border); border-radius: 6px; padding: 2rem; text-align: center; cursor: pointer; background: rgba(0,0,0,0.1); position: relative; }
+        .m-upload-area:hover { border-color: #818cf8; background: rgba(0,0,0,0.2); }
+        .m-upload-area input { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+        
+        .m-canvas-wrap { background: #fff; padding: 5px; border-radius: 4px; display: none; justify-content: center; align-items: center; overflow: hidden;}
+        .m-canvas-wrap canvas { max-width: 100%; max-height: 250px; cursor: grab; }
+        
+        /* Modernized Tool Buttons for Merge */
+        .m-toolbar { display: none; gap: 5px; margin-top: 10px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 6px; }
+        .m-tool-btn { background: var(--merge-border); color: #fff; border: none; border-radius: 4px; padding: 5px; cursor: pointer; flex: 1; font-size: 0.8rem; font-weight: bold; }
+        .m-tool-btn:hover { background: #6366f1; }
+
+        /* Merge Options Row */
+        .merge-options-row { display: grid; grid-template-columns: 1fr 300px; gap: 1rem; margin-top: 1rem; }
+        
+        .m-opt-section { background: var(--merge-panel); border: 1px solid var(--merge-border); border-radius: 8px; padding: 1rem; }
+        .m-opt-title { font-size: 0.75rem; font-weight: 700; color: #fff; background: rgba(0,0,0,0.3); padding: 5px 10px; display: inline-block; margin-bottom: 15px; border-radius: 4px; }
+        
+        .m-field { margin-bottom: 1rem; }
+        .m-label { display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 8px; font-weight: 600; }
+        
+        .m-radio-group { display: flex; gap: 10px; }
+        .m-radio-btn { flex: 1; text-align: center; background: rgba(0,0,0,0.2); border: 1px solid var(--merge-border); padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: #cbd5e1;}
+        .m-radio-btn.active { background: #4f46e5; border-color: #818cf8; color: #fff; font-weight: bold;}
+        
+        .m-select { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--merge-border); color: #fff; padding: 8px; border-radius: 6px; outline: none; }
+        .m-range-wrap { display: flex; align-items: center; gap: 10px; }
+        .m-range-wrap input[type=range] { flex: 1; }
+        .m-range-val { background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; min-width: 40px; text-align: center;}
+
+        /* --- Preview Result --- */
+        .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+        .result-card { border: 2px solid var(--border-color); border-radius: 16px; padding: 1.5rem; text-align: center; background: rgba(0,0,0,0.02); display: none; flex-direction: column; justify-content: space-between;}
+        .result-card.active-result { display: flex; }
+        .preview-box { margin: 1rem 0; background: rgba(0,0,0,0.05); border-radius: 12px; padding: 0.5rem; height: 180px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .preview-box img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+        .preview-box iframe { width: 100%; height: 100%; border: none; border-radius: 8px; background: white; }
+
+        @media (max-width: 768px) { 
+            .editor-workspace { grid-template-columns: 1fr; } 
+            .merge-cols, .merge-options-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Header -->
+    <div class="top-bar">
+        <h1>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            ID Formatter Pro
+        </h1>
+        <div class="designer-credit">Designed by <span>Sahid</span></div>
+    </div>
+
+    <div class="view-container">
+        
+        <!-- PAGE 1: PORTALS -->
+        <div id="page-1" class="step-view active">
+            <h2 style="text-align: center; color: var(--primary);">Choose an Action</h2>
+            
+            <div class="portal-grid">
+                <div class="portal-card" onclick="selectPortal('NSDL')">
+                    <div class="portal-icon">🪪</div>
+                    <h3>NSDL PAN</h3>
+                    <div class="portal-desc">Format Photo & Sign</div>
+                </div>
+                <div class="portal-card" onclick="selectPortal('UTI')">
+                    <div class="portal-icon">🪪</div>
+                    <h3>UTIITSL PAN</h3>
+                    <div class="portal-desc">Format Photo & Sign</div>
+                </div>
+                <div class="portal-card" onclick="selectPortal('VOTER')" style="border-color: var(--slider-thumb);">
+                    <div class="portal-icon">🗳️</div>
+                    <h3 style="color: var(--slider-thumb); text-shadow: 0 0 8px rgba(250,204,21,0.5);">Voter ID (ECI)</h3>
+                    <div class="portal-desc">Format Photo Only</div>
+                </div>
+                <!-- MERGE OPTION -->
+                <div class="portal-card" onclick="openMergeStudio()" style="border-color: var(--success);">
+                    <div class="portal-icon">🖼️</div>
+                    <h3 style="color: var(--success);">Merge Images</h3>
+                    <div class="portal-desc">Join 2 Images together</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 2: DASHBOARD (Standard Flow) -->
+        <div id="page-2" class="step-view">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2>Upload Media <span id="dash-portal" style="color:var(--primary); font-size:1rem;"></span></h2>
+                <button class="btn btn-outline" onclick="goToPage(1)" style="padding:0.4rem 0.8rem; font-size:0.8rem;">← Home</button>
+            </div>
+            
+            <div class="dashboard-grid">
+                <!-- Photo -->
+                <div class="dash-card" id="card-photo" onclick="triggerFile('photo')">
+                    <input type="file" id="file-photo" accept="image/*" style="display:none">
+                    <div class="dash-icon">📸</div>
+                    <div class="dash-title">Passport Photo</div>
+                    <div class="dash-status" id="status-photo">Click to Upload</div>
+                    <div class="dash-actions" id="actions-photo">
+                        <button class="btn btn-outline" onclick="reOpenEditor('photo', event)">✏️ Edit</button>
+                        <button class="btn btn-danger" onclick="deleteMedia('photo', event)">🗑️</button>
+                    </div>
+                </div>
+                <!-- Signature -->
+                <div class="dash-card" id="card-sign" onclick="triggerFile('sign')">
+                    <input type="file" id="file-sign" accept="image/*" style="display:none">
+                    <div class="dash-icon">✍️</div>
+                    <div class="dash-title">Signature</div>
+                    <div class="dash-status" id="status-sign">Click to Upload</div>
+                    <div class="dash-actions" id="actions-sign">
+                        <button class="btn btn-outline" onclick="reOpenEditor('sign', event)">✏️ Edit</button>
+                        <button class="btn btn-danger" onclick="deleteMedia('sign', event)">🗑️</button>
+                    </div>
+                </div>
+                <!-- Document -->
+                <div class="dash-card" id="card-doc" onclick="triggerFile('doc')">
+                    <input type="file" id="file-doc" accept="application/pdf" style="display:none">
+                    <div class="dash-icon">📄</div>
+                    <div class="dash-title">ID Document (PDF)</div>
+                    <div class="dash-status" id="status-doc">Click to Upload</div>
+                    <div class="dash-actions" id="actions-doc">
+                        <button class="btn btn-danger" onclick="deleteDoc(event)" style="width:100%;">🗑️ Delete PDF</button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align:center; margin-top:2rem;">
+                <button class="btn btn-success" style="padding: 1rem 3rem; font-size:1.1rem;" onclick="showPreviewModal()">Proceed to Preview →</button>
+            </div>
+        </div>
+
+        <!-- PAGE 3: PINETOOLS MERGE STUDIO -->
+        <div id="page-merge" class="step-view">
+            <div class="merge-studio">
+                <div class="merge-header">
+                    MERGE IMAGES ONLINE
+                    <button class="btn btn-outline" style="float:right; border-color:#cbd5e1; color:#cbd5e1; padding:4px 10px;" onclick="goToPage(1)">✕ Close</button>
+                </div>
+
+                <div class="merge-cols">
+                    <!-- IMG 1 -->
+                    <div class="merge-box">
+                        <div class="merge-box-title">FIRST IMAGE</div>
+                        <div class="m-upload-area" id="mu-1" onclick="document.getElementById('mf-1').click()">
+                            <input type="file" id="mf-1" accept="image/*">
+                            <div style="font-size: 2rem; color: #a5b4fc; margin-bottom: 10px;">📥</div>
+                            <p style="color: #cbd5e1; font-weight:600;">Drop an image here...</p>
+                        </div>
+                        <div class="m-canvas-wrap" id="mc-wrap-1">
+                            <canvas id="mc-1"></canvas>
+                        </div>
+                        <div class="m-toolbar" id="mtb-1">
+                            <button class="m-tool-btn" onclick="adjM(1, 'zi')">Zoom +</button>
+                            <button class="m-tool-btn" onclick="adjM(1, 'zo')">Zoom -</button>
+                            <button class="m-tool-btn" onclick="adjM(1, 'l')">←</button>
+                            <button class="m-tool-btn" onclick="adjM(1, 'r')">→</button>
+                            <button class="m-tool-btn" onclick="adjM(1, 'u')">↑</button>
+                            <button class="m-tool-btn" onclick="adjM(1, 'd')">↓</button>
+                        </div>
+                    </div>
+
+                    <!-- IMG 2 -->
+                    <div class="merge-box">
+                        <div class="merge-box-title">SECOND IMAGE</div>
+                        <div class="m-upload-area" id="mu-2" onclick="document.getElementById('mf-2').click()">
+                            <input type="file" id="mf-2" accept="image/*">
+                            <div style="font-size: 2rem; color: #a5b4fc; margin-bottom: 10px;">📥</div>
+                            <p style="color: #cbd5e1; font-weight:600;">Drop an image here...</p>
+                        </div>
+                        <div class="m-canvas-wrap" id="mc-wrap-2">
+                            <canvas id="mc-2"></canvas>
+                        </div>
+                        <div class="m-toolbar" id="mtb-2">
+                            <button class="m-tool-btn" onclick="adjM(2, 'zi')">Zoom +</button>
+                            <button class="m-tool-btn" onclick="adjM(2, 'zo')">Zoom -</button>
+                            <button class="m-tool-btn" onclick="adjM(2, 'l')">←</button>
+                            <button class="m-tool-btn" onclick="adjM(2, 'r')">→</button>
+                            <button class="m-tool-btn" onclick="adjM(2, 'u')">↑</button>
+                            <button class="m-tool-btn" onclick="adjM(2, 'd')">↓</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="merge-options-row">
+                    <!-- Options -->
+                    <div class="m-opt-section">
+                        <div class="m-opt-title">OPTIONS</div>
+                        
+                        <div class="m-field">
+                            <span class="m-label">How to position the images</span>
+                            <div class="m-radio-group">
+                                <div class="m-radio-btn active" id="btn-m-dir-v" onclick="setMDir('vertical')">Vertically</div>
+                                <div class="m-radio-btn" id="btn-m-dir-h" onclick="setMDir('horizontal')">Horizontally</div>
+                            </div>
+                        </div>
+
+                        <div class="m-field">
+                            <span class="m-label">How to adjust the size</span>
+                            <select class="m-select" id="m-resize">
+                                <option value="reduce">Reduce the biggest (recommended)</option>
+                                <option value="enlarge">Enlarge the smallest</option>
+                            </select>
+                        </div>
+
+                        <div class="m-field">
+                            <span class="m-label">Thickness of the border (px)</span>
+                            <div class="m-range-wrap">
+                                <input type="range" id="m-thick" min="0" max="100" value="0" oninput="document.getElementById('m-thick-val').innerText = this.value">
+                                <span class="m-range-val" id="m-thick-val">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Color -->
+                    <div class="m-opt-section">
+                        <div class="m-opt-title">COLOR OF THE BORDER</div>
+                        <div style="display:flex; justify-content:center; align-items:center; height:100%;">
+                            <input type="color" id="m-color" value="#ffffff" style="width: 80px; height: 80px; border: none; cursor: pointer; background: transparent;">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 1rem;">
+                    <button class="btn" style="background:#10b981; padding: 1rem 3rem; font-size: 1.2rem;" onclick="processMerge()">MERGE!</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- EDITOR MODAL (Standard ID Flow) -->
+<div class="modal-overlay" id="editor-modal">
+    <div class="modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; border-bottom:1px solid var(--border-color); padding-bottom:1rem;">
+            <h2 style="color: var(--primary);" id="editor-title">Format Editor</h2>
+            <button class="btn btn-danger" onclick="closeEditorModal()">Cancel</button>
+        </div>
+        
+        <div class="editor-workspace">
+            <div class="canvas-container">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom:10px;">Fit perfectly inside the <b>Glowing Green Box</b>.<br><i>(Scroll Mouse Wheel to Zoom)</i></p>
+                <div class="canvas-wrapper">
+                    <canvas id="active-canvas"></canvas>
+                </div>
+            </div>
+            
+            <div class="tools-panel">
+                <div class="tool-group"><div class="tool-header">Zoom</div><input type="range" id="t-zoom" min="0.1" max="4" step="0.05" value="1"></div>
+                <div class="tool-group"><div class="tool-header">Brightness</div><input type="range" id="t-bright" min="50" max="150" step="1" value="100"></div>
+                <div class="tool-group"><div class="tool-header">Contrast</div><input type="range" id="t-contrast" min="50" max="150" step="1" value="100"></div>
+                <div style="text-align:right;"><button class="btn btn-outline" style="padding: 0.3rem 0.8rem; font-size:0.75rem;" onclick="autoEnhance()">🪄 Auto Enhance</button></div>
+                
+                <div class="tool-group"><div class="tool-header">Horizontal Move</div><input type="range" id="t-moveX" value="0"></div>
+                <div class="tool-group"><div class="tool-header">Vertical Move</div><input type="range" id="t-moveY" value="0"></div>
+                
+                <div style="border-top:1px solid var(--border-color); padding-top:1rem; margin-top:0.5rem;">
+                    <div class="tool-header">Background Remove</div>
+                    <div style="display:flex; gap:10px; align-items:center; margin-top:5px;">
+                        <input type="color" id="t-bgcolor" value="#ffffff" style="width:30px; height:30px; border:none; cursor:pointer;">
+                        <button class="btn btn-outline" id="t-btn-bg" style="flex:1; padding:0.5rem; font-size:0.8rem;" onclick="toggleAutoBg()">✨ Auto Remove</button>
+                    </div>
+                    <div style="margin-top:5px; font-size:0.75rem;">Tolerance: <span id="t-tol-val">30</span></div>
+                    <input type="range" id="t-tol" min="0" max="150" value="30">
+                </div>
+                
+                <button class="btn btn-success" style="margin-top:1rem; padding: 1rem;" onclick="saveActiveEdit()">✅ Apply & Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+<div class="modal-overlay" id="preview-modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:1rem;">
+            <h2 style="color: var(--success);" id="prev-title">Files Ready!</h2>
+            <button class="btn btn-outline" onclick="closePreviewModal()">✕ Close</button>
+        </div>
+        
+        <div class="result-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+            <div class="result-card" id="res-photo" style="display:none; text-align:center; padding:1.5rem; border:2px solid var(--border-color); border-radius:12px;">
+                <h3 style="color: var(--primary);">Photograph</h3>
+                <div style="margin:1rem 0; height:180px; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.05); border-radius:8px;"><img id="p-img-photo" style="max-width:100%; max-height:100%; border-radius:4px; box-shadow:0 4px 10px rgba(0,0,0,0.1);"></div>
+                <button class="btn btn-success" onclick="dl('photo')">⬇ Download</button>
+            </div>
+            
+            <div class="result-card" id="res-sign" style="display:none; text-align:center; padding:1.5rem; border:2px solid var(--border-color); border-radius:12px;">
+                <h3 style="color: var(--primary);">Signature</h3>
+                <div style="margin:1rem 0; height:180px; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.05); border-radius:8px;"><img id="p-img-sign" style="max-width:100%; max-height:100%; border-radius:4px; box-shadow:0 4px 10px rgba(0,0,0,0.1);"></div>
+                <button class="btn btn-success" onclick="dl('sign')">⬇ Download</button>
+            </div>
+            
+            <div class="result-card" id="res-doc" style="display:none; text-align:center; padding:1.5rem; border:2px solid var(--border-color); border-radius:12px;">
+                <h3 style="color: var(--primary);">Document</h3>
+                <div style="margin:1rem 0; height:180px; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.05); border-radius:8px;"><iframe id="p-iframe-doc" style="width:100%; height:100%; border:none;"></iframe></div>
+                <button class="btn btn-success" onclick="dl('doc')">⬇ Download PDF</button>
+            </div>
+
+            <div class="result-card" id="res-merged" style="display:none; text-align:center; padding:1.5rem; border:2px solid var(--border-color); border-radius:12px; grid-column: 1 / -1;">
+                <h3 style="color: var(--success);">Merged Output</h3>
+                <div style="margin:1rem 0; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.05); border-radius:8px; padding:10px;"><img id="p-img-merged" style="max-width:100%; max-height:400px; border-radius:4px; box-shadow:0 4px 10px rgba(0,0,0,0.1);"></div>
+                <button class="btn btn-success" onclick="dl('merged')">⬇ Download Merged Image</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- APP CORE ---
+    let currentPortal = 'NSDL';
+    let activeType = null; 
+    let mDir = 'vertical';
+
+    const config = {
+        NSDL: { w: 197, h: 276 },
+        UTI: { w: 213, h: 213 },
+        VOTER: { w: 350, h: 450 }
+    };
+
+    const sState = {
+        photo: { img: new Image(), x:0, y:0, s:1, b:100, c:100, bg:'#ffffff', autoBg:false, tol:30, ready:false, url:null },
+        sign: { img: new Image(), x:0, y:0, s:1, b:100, c:100, bg:'#ffffff', autoBg:false, tol:30, ready:false, url:null },
+        doc: { file: null, ready: false },
+        merged: { url: null, ready: false }
+    };
+
+    const mState = {
+        1: { img: new Image(), x:0, y:0, s:1, ready:false },
+        2: { img: new Image(), x:0, y:0, s:1, ready:false }
+    };
+
+    // Navigation
+    function goToPage(p) {
+        document.querySelectorAll('.step-view').forEach(e => e.classList.remove('active'));
+        document.getElementById(`page-${p}`).classList.add('active');
+    }
+
+    function selectPortal(p) {
+        currentPortal = p;
+        if(p === 'VOTER') {
+            document.getElementById('card-sign').style.display = 'none';
+            document.getElementById('card-doc').style.display = 'block';
+            document.getElementById('dash-portal').innerText = '(Voter ID)';
+            goToPage(2);
+        } else {
+            document.getElementById('card-sign').style.display = 'block';
+            document.getElementById('card-doc').style.display = 'block';
+            document.getElementById('dash-portal').innerText = `(${p})`;
+            goToPage(2);
+        }
+    }
+
+    function openMergeStudio() { currentPortal = 'MERGE'; goToPage('merge'); }
+
+    // --- DASHBOARD (Standard Flow) ---
+    function triggerFile(t) { if(!sState[t].ready) document.getElementById(`file-${t}`).click(); }
+    
+    function deleteMedia(t, e) {
+        e.stopPropagation();
+        sState[t].ready = false; sState[t].url = null;
+        document.getElementById(`file-${t}`).value = '';
+        document.getElementById(`card-${t}`).classList.remove('ready');
+        document.getElementById(`actions-${t}`).style.display = 'none';
+        document.getElementById(`status-${t}`).style.display = 'block';
+    }
+    
+    function deleteDoc(e) {
+        e.stopPropagation();
+        sState.doc.ready = false; sState.doc.file = null;
+        document.getElementById('file-doc').value = '';
+        document.getElementById('card-doc').classList.remove('ready');
+        document.getElementById('actions-doc').style.display = 'none';
+        document.getElementById('status-doc').style.display = 'block';
+    }
+
+    function reOpenEditor(t, e) { e.stopPropagation(); openEditor(t); }
+
+    // Standard Upload Listeners
+    document.getElementById('file-doc').addEventListener('change', e => {
+        const f = e.target.files[0];
+        if(f && f.type === 'application/pdf' && f.size <= 2097152) {
+            sState.doc.file = f; sState.doc.ready = true;
+            document.getElementById('card-doc').classList.add('ready');
+            document.getElementById('status-doc').style.display = 'none';
+            document.getElementById('actions-doc').style.display = 'flex';
+        } else if(f) alert("PDF must be less than 2MB");
+    });
+
+    ['photo', 'sign'].forEach(t => {
+        document.getElementById(`file-${t}`).addEventListener('change', e => {
+            const f = e.target.files[0];
+            if(!f) return;
+            const r = new FileReader();
+            r.onload = ev => {
+                sState[t].img.src = ev.target.result;
+                sState[t].img.onload = () => {
+                    sState[t].b = 100; sState[t].c = 100; sState[t].autoBg = false;
+                    const cW = config[currentPortal].w; const cH = (t==='photo') ? config[currentPortal].h : (currentPortal==='NSDL'?157:200);
+                    sState[t].s = Math.max(cW/sState[t].img.width, cH/sState[t].img.height);
+                    sState[t].x = (cW - sState[t].img.width * sState[t].s) / 2;
+                    sState[t].y = (cH - sState[t].img.height * sState[t].s) / 2;
+                    openEditor(t);
+                };
+            };
+            r.readAsDataURL(f);
+        });
+    });
+
+    // --- STANDARD EDITOR (Pop-up Modal) ---
+    const stdCanvas = document.getElementById('active-canvas');
+    const stdCtx = stdCanvas.getContext('2d', { willReadFrequently: true });
+    
+    function openEditor(t) {
+        activeType = t;
+        const s = sState[t];
+        const cW = config[currentPortal].w; const cH = (t==='photo') ? config[currentPortal].h : (currentPortal==='NSDL'?157:200);
+        stdCanvas.width = cW; stdCanvas.height = cH;
+        
+        document.getElementById('t-zoom').min = s.s * 0.1; document.getElementById('t-zoom').max = s.s * 4; document.getElementById('t-zoom').value = s.s;
+        document.getElementById('t-bright').value = s.b; document.getElementById('t-contrast').value = s.c;
+        document.getElementById('t-moveX').min = -cW*2; document.getElementById('t-moveX').max = cW*2; document.getElementById('t-moveX').value = s.x;
+        document.getElementById('t-moveY').min = -cH*2; document.getElementById('t-moveY').max = cH*2; document.getElementById('t-moveY').value = s.y;
+        document.getElementById('t-tol').value = s.tol; document.getElementById('t-tol-val').innerText = s.tol;
+        
+        const btnBg = document.getElementById('t-btn-bg');
+        if(s.autoBg) { btnBg.classList.add('btn-success'); btnBg.innerText = "✅ BG Removed"; }
+        else { btnBg.classList.remove('btn-success'); btnBg.innerText = "✨ Auto Remove"; }
+
+        document.getElementById('editor-modal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        drawStd();
+    }
+
+    function closeEditorModal() {
+        if(activeType && !sState[activeType].ready) { deleteMedia(activeType, {stopPropagation:()=>{}}); }
+        document.getElementById('editor-modal').classList.remove('active');
+        document.body.style.overflow = 'auto'; activeType = null;
+    }
+
+    function drawStd() {
+        if(!activeType) return;
+        const s = sState[activeType];
+        stdCtx.fillStyle = s.bg; stdCtx.fillRect(0,0, stdCanvas.width, stdCanvas.height);
+        
+        const oc = document.createElement('canvas'); oc.width = s.img.width; oc.height = s.img.height;
+        const octx = oc.getContext('2d', { willReadFrequently: true });
+        octx.filter = `brightness(${s.b}%) contrast(${s.c}%)`; octx.drawImage(s.img, 0, 0); octx.filter = 'none';
+
+        if(s.autoBg) {
+            const d = octx.getImageData(0,0,oc.width,oc.height); const data = d.data;
+            const r0=data[0], g0=data[1], b0=data[2], t=s.tol;
+            for(let i=0; i<data.length; i+=4) {
+                if(Math.abs(data[i]-r0)<=t && Math.abs(data[i+1]-g0)<=t && Math.abs(data[i+2]-b0)<=t) data[i+3]=0;
+            }
+            octx.putImageData(d,0,0);
+        }
+        stdCtx.drawImage(oc, s.x, s.y, s.img.width * s.s, s.img.height * s.s);
+    }
+
+    // Standard Tools Listeners
+    function applyStdZ(ns) {
+        const s = sState[activeType]; const cx = stdCanvas.width/2; const cy = stdCanvas.height/2;
+        s.x = cx - (cx - s.x) * (ns / s.s); s.y = cy - (cy - s.y) * (ns / s.s); s.s = ns;
+        document.getElementById('t-zoom').value = s.s; document.getElementById('t-moveX').value = s.x; document.getElementById('t-moveY').value = s.y;
+        drawStd();
+    }
+    document.getElementById('t-zoom').oninput = e => applyStdZ(parseFloat(e.target.value));
+    document.getElementById('t-bright').oninput = e => { sState[activeType].b = e.target.value; drawStd(); };
+    document.getElementById('t-contrast').oninput = e => { sState[activeType].c = e.target.value; drawStd(); };
+    document.getElementById('t-moveX').oninput = e => { sState[activeType].x = parseFloat(e.target.value); drawStd(); };
+    document.getElementById('t-moveY').oninput = e => { sState[activeType].y = parseFloat(e.target.value); drawStd(); };
+    document.getElementById('t-bgcolor').oninput = e => { sState[activeType].bg = e.target.value; drawStd(); };
+    document.getElementById('t-tol').oninput = e => { sState[activeType].tol = e.target.value; document.getElementById('t-tol-val').innerText = e.target.value; if(sState[activeType].autoBg) drawStd(); };
+    
+    function autoEnhance() { sState[activeType].b=110; sState[activeType].c=115; document.getElementById('t-bright').value=110; document.getElementById('t-contrast').value=115; drawStd(); }
+    function toggleAutoBg() {
+        const s = sState[activeType]; s.autoBg = !s.autoBg;
+        const btn = document.getElementById('t-btn-bg');
+        if(s.autoBg) { btn.classList.add('btn-success'); btn.innerText="✅ BG Removed"; } else { btn.classList.remove('btn-success'); btn.innerText="✨ Auto Remove"; }
+        drawStd();
+    }
+
+    // Standard Mouse/Touch Drag
+    stdCanvas.addEventListener('wheel', e => {
+        e.preventDefault(); if(!activeType) return;
+        let ns = parseFloat(sState[activeType].s) + (e.deltaY > 0 ? -0.05 : 0.05);
+        ns = Math.max(parseFloat(document.getElementById('t-zoom').min), Math.min(parseFloat(document.getElementById('t-zoom').max), ns));
+        applyStdZ(ns);
+    }, {passive:false});
+
+    let sDrag=false, sSX=0, sSY=0;
+    function getSPos(e) { const r=stdCanvas.getBoundingClientRect(); const cx=e.clientX??e.touches[0].clientX; const cy=e.clientY??e.touches[0].clientY; return {x:(cx-r.left)*(stdCanvas.width/r.width), y:(cy-r.top)*(stdCanvas.height/r.height)}; }
+    
+    stdCanvas.onmousedown = e => { if(!activeType)return; sDrag=true; const p=getSPos(e); sSX = p.x - sState[activeType].x; sSY = p.y - sState[activeType].y; };
+    stdCanvas.onmousemove = e => { if(!sDrag || !activeType)return; const p=getSPos(e); sState[activeType].x = p.x - sSX; sState[activeType].y = p.y - sSY; document.getElementById('t-moveX').value = sState[activeType].x; document.getElementById('t-moveY').value = sState[activeType].y; drawStd(); };
+    window.addEventListener('mouseup', () => sDrag=false);
+    
+    stdCanvas.ontouchstart = e => { if(!activeType)return; sDrag=true; const p=getSPos(e); sSX = p.x - sState[activeType].x; sSY = p.y - sState[activeType].y; };
+    stdCanvas.ontouchmove = e => { if(!sDrag || !activeType)return; e.preventDefault(); const p=getSPos(e); sState[activeType].x = p.x - sSX; sState[activeType].y = p.y - sSY; document.getElementById('t-moveX').value = sState[activeType].x; document.getElementById('t-moveY').value = sState[activeType].y; drawStd(); };
+    window.addEventListener('touchend', () => sDrag=false);
+
+    function saveActiveEdit() {
+        if(!activeType) return;
+        sState[activeType].url = stdCanvas.toDataURL('image/jpeg', 0.85);
+        sState[activeType].ready = true;
+        document.getElementById(`card-${activeType}`).classList.add('ready');
+        document.getElementById(`status-${activeType}`).style.display = 'none';
+        document.getElementById(`actions-${activeType}`).style.display = 'flex';
+        closeEditorModal();
+    }
+
+    // --- MERGE STUDIO ---
+    function setMDir(d) {
+        mDir = d;
+        document.getElementById('btn-m-dir-v').className = 'm-radio-btn ' + (d==='vertical'?'active':'');
+        document.getElementById('btn-m-dir-h').className = 'm-radio-btn ' + (d==='horizontal'?'active':'');
+    }
+
+    [1, 2].forEach(id => {
+        document.getElementById(`mf-${id}`).addEventListener('change', e => {
+            const f = e.target.files[0]; if(!f) return;
+            const r = new FileReader();
+            r.onload = ev => {
+                mState[id].img.src = ev.target.result;
+                mState[id].img.onload = () => {
+                    document.getElementById(`mu-${id}`).style.display = 'none';
+                    document.getElementById(`mc-wrap-${id}`).style.display = 'flex';
+                    document.getElementById(`mtb-${id}`).style.display = 'flex';
+                    initM(id);
+                };
+            };
+            r.readAsDataURL(f);
+        });
+    });
+
+    function initM(id) {
+        const s = mState[id]; const cvs = document.getElementById(`mc-${id}`);
+        const ratio = s.img.height / s.img.width;
+        cvs.width = 600; cvs.height = 600 * ratio; // Fixed base resolution for processing
+        s.s = cvs.width / s.img.width;
+        s.x = (cvs.width - s.img.width * s.s) / 2; s.y = (cvs.height - s.img.height * s.s) / 2;
+        s.ready = true; drawM(id);
+    }
+
+    function drawM(id) {
+        const s = mState[id]; const cvs = document.getElementById(`mc-${id}`); const ctx = cvs.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,cvs.width,cvs.height);
+        ctx.drawImage(s.img, s.x, s.y, s.img.width * s.s, s.img.height * s.s);
+    }
+
+    // Merge Button Adjustments
+    function adjM(id, act) {
+        const s = mState[id]; const cvs = document.getElementById(`mc-${id}`);
+        const cx = cvs.width/2; const cy = cvs.height/2;
+        if(act==='zi') { const ns=s.s*1.1; s.x=cx-(cx-s.x)*(ns/s.s); s.y=cy-(cy-s.y)*(ns/s.s); s.s=ns; }
+        if(act==='zo') { const ns=s.s*0.9; s.x=cx-(cx-s.x)*(ns/s.s); s.y=cy-(cy-s.y)*(ns/s.s); s.s=ns; }
+        if(act==='l') s.x-=20; if(act==='r') s.x+=20;
+        if(act==='u') s.y-=20; if(act==='d') s.y+=20;
+        drawM(id);
+    }
+
+    // Merge Dragging
+    let mDragId=null, mSx=0, mSy=0;
+    function getMPos(e, cvs) { const r=cvs.getBoundingClientRect(); const cx=e.clientX??e.touches[0].clientX; const cy=e.clientY??e.touches[0].clientY; return {x:(cx-r.left)*(cvs.width/r.width), y:(cy-r.top)*(cvs.height/r.height)}; }
+    
+    [1,2].forEach(id => {
+        const cvs = document.getElementById(`mc-${id}`);
+        cvs.onmousedown = e => { mDragId=id; const p=getMPos(e,cvs); mSx=p.x-mState[id].x; mSy=p.y-mState[id].y; };
+        cvs.ontouchstart = e => { mDragId=id; const p=getMPos(e,cvs); mSx=p.x-mState[id].x; mSy=p.y-mState[id].y; };
+        
+        cvs.addEventListener('wheel', e => {
+            e.preventDefault(); 
+            const s=mState[id]; const ns = s.s * (e.deltaY > 0 ? 0.95 : 1.05);
+            const cx = cvs.width/2; const cy = cvs.height/2;
+            s.x=cx-(cx-s.x)*(ns/s.s); s.y=cy-(cy-s.y)*(ns/s.s); s.s=ns; drawM(id);
+        }, {passive:false});
+    });
+    
+    window.addEventListener('mousemove', e => { if(mDragId) { const cvs=document.getElementById(`mc-${mDragId}`); const p=getMPos(e,cvs); mState[mDragId].x=p.x-mSx; mState[mDragId].y=p.y-mSy; drawM(mDragId); } });
+    window.addEventListener('touchmove', e => { if(mDragId) { e.preventDefault(); const cvs=document.getElementById(`mc-${mDragId}`); const p=getMPos(e,cvs); mState[mDragId].x=p.x-mSx; mState[mDragId].y=p.y-mSy; drawM(mDragId); } }, {passive:false});
+    window.addEventListener('mouseup', () => mDragId=null);
+    window.addEventListener('touchend', () => mDragId=null);
+
+    function processMerge() {
+        if(!mState[1].ready || !mState[2].ready) return alert("Please upload and adjust BOTH images before merging.");
+        
+        const mode = document.getElementById('m-resize').value;
+        const bPx = parseInt(document.getElementById('m-thick').value);
+        const bCol = document.getElementById('m-color').value;
+
+        const c1 = document.getElementById('mc-1'); const c2 = document.getElementById('mc-2');
+        const mCanvas = document.createElement('canvas'); const mCtx = mCanvas.getContext('2d');
+
+        let w1=c1.width, h1=c1.height, w2=c2.width, h2=c2.height;
+        let s1=1, s2=1, fW, fH;
+
+        if (mDir === 'vertical') {
+            let tW = (mode==='reduce') ? Math.min(w1,w2) : Math.max(w1,w2);
+            s1=tW/w1; s2=tW/w2;
+            let fh1=h1*s1, fh2=h2*s2;
+            fW = tW + (bPx*2); fH = fh1 + fh2 + (bPx*3);
+            mCanvas.width=fW; mCanvas.height=fH;
+            mCtx.fillStyle=bCol; mCtx.fillRect(0,0,fW,fH);
+            mCtx.drawImage(c1, 0,0,w1,h1, bPx, bPx, tW, fh1);
+            mCtx.drawImage(c2, 0,0,w2,h2, bPx, bPx*2+fh1, tW, fh2);
+        } else {
+            let tH = (mode==='reduce') ? Math.min(h1,h2) : Math.max(h1,h2);
+            s1=tH/h1; s2=tH/h2;
+            let fw1=w1*s1, fw2=w2*s2;
+            fH = tH + (bPx*2); fW = fw1 + fw2 + (bPx*3);
+            mCanvas.width=fW; mCanvas.height=fH;
+            mCtx.fillStyle=bCol; mCtx.fillRect(0,0,fW,fH);
+            mCtx.drawImage(c1, 0,0,w1,h1, bPx, bPx, fw1, tH);
+            mCtx.drawImage(c2, 0,0,w2,h2, bPx*2+fw1, bPx, fw2, tH);
+        }
+
+        sState.merged.url = mCanvas.toDataURL('image/jpeg', 0.95);
+        sState.merged.ready = true;
+        
+        document.getElementById('res-photo').style.display='none'; document.getElementById('res-sign').style.display='none'; document.getElementById('res-doc').style.display='none';
+        document.getElementById('res-merged').style.display='block';
+        document.getElementById('p-img-merged').src = sState.merged.url;
+        
+        document.getElementById('prev-title').innerText = "Merged Image Ready!";
+        document.getElementById('preview-modal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    // --- PREVIEW RESULTS (Standard) ---
+    function showPreviewModal() {
+        if(!sState.photo.ready && !sState.sign.ready && !sState.doc.ready) return alert("Please upload at least one file!");
+        
+        document.getElementById('res-merged').style.display='none';
+        document.getElementById('prev-title').innerText = "Generated Files Ready!";
+
+        ['photo','sign','doc'].forEach(t => {
+            const card = document.getElementById(`res-${t}`);
+            if(currentPortal==='VOTER' && t==='sign') { card.style.display='none'; return; }
+            if(sState[t].ready) {
+                if(t==='doc') document.getElementById('p-iframe-doc').src = URL.createObjectURL(sState.doc.file);
+                else document.getElementById(`p-img-${t}`).src = sState[t].url;
+                card.style.display='block';
+            } else { card.style.display='none'; }
+        });
+
+        document.getElementById('preview-modal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closePreviewModal() {
+        document.getElementById('preview-modal').classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+
+    function dl(t) {
+        const link = document.createElement('a');
+        if(t==='doc') { link.href=URL.createObjectURL(sState.doc.file); link.download=`Document_${currentPortal}.pdf`; }
+        else if(t==='merged') { link.href=sState.merged.url; link.download=`Merged_Image.jpg`; }
+        else { link.href=sState[t].url; link.download=`${t}_${currentPortal}.jpg`; }
+        link.click();
+    }
+</script>
+</body>
+</html>
